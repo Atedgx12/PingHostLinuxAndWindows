@@ -1,0 +1,86 @@
+@echo off
+REM ========= CONFIGURATION AND INITIALIZATION =========
+
+REM -- Determine the target directory.
+REM This creates a folder called "CenturionConsultingProject2" on the current user’s Desktop.
+set "TARGET_DIR=%USERPROFILE%\Desktop\CenturionConsultingProject2"
+if not exist "%TARGET_DIR%" (
+    mkdir "%TARGET_DIR%"
+)
+
+REM -- Convert Windows paths to WSL (Linux) paths using wslpath.
+REM We need these paths for writing and executing our Bash script in WSL.
+for /f "delims=" %%i in ('wsl wslpath "%TARGET_DIR%"') do set "WSL_TARGET_DIR=%%i"
+
+REM Define the Bash script file and output file names (Windows versions)
+set "BASH_SCRIPT=%TARGET_DIR%\CenturionConsulting_auto_ping.sh"
+set "OUTPUT_FILE_WIN=%TARGET_DIR%\CenturionConsulting_ping_results_win.txt"
+set "OUTPUT_FILE_WSL=%TARGET_DIR%\CenturionConsulting_ping_results_wsl.txt"
+
+REM Convert those to WSL paths.
+for /f "delims=" %%i in ('wsl wslpath "%BASH_SCRIPT%"') do set "WSL_BASH_SCRIPT=%%i"
+for /f "delims=" %%i in ('wsl wslpath "%OUTPUT_FILE_WIN%"') do set "WSL_OUTPUT_FILE_WIN=%%i"
+for /f "delims=" %%i in ('wsl wslpath "%OUTPUT_FILE_WSL%"') do set "WSL_OUTPUT_FILE_WSL=%%i"
+
+REM -- Ask the user for the host to ping using a simple GUI input box.
+for /f "usebackq delims=" %%a in (`powershell -command "[System.Reflection.Assembly]::LoadWithPartialName('Microsoft.VisualBasic') | Out-Null; [Microsoft.VisualBasic.Interaction]::InputBox('Enter host to ping:','Ping Host','costco.com')"`) do set "HOST=%%a"
+if "%HOST%"=="" (
+    REM If the user cancels or enters nothing, default to costco.com
+    set "HOST=costco.com"
+)
+
+REM ========= CHECK/INSTALL WSL =========
+
+REM Check if WSL is installed using the where command.
+where wsl >nul 2>nul
+if errorlevel 1 (
+    echo WSL is not installed. Installing WSL now...
+    wsl --install
+    echo Please restart your computer for the WSL installation to take effect.
+    pause
+    exit /b
+) else (
+    echo WSL is already installed. Proceeding...
+)
+
+pause
+
+REM ========= CREATE THE BASH SCRIPT FOR WSL =========
+
+echo Creating Bash script in WSL...
+
+REM We are “writing” the Bash script into the file (using the WSL path) line‐by‐line.
+wsl bash -c "echo '#!/bin/bash' > '%WSL_BASH_SCRIPT%'"
+wsl bash -c "echo '# This script pings a host 5 times and writes the results to two files:' >> '%WSL_BASH_SCRIPT%'"
+wsl bash -c "echo '# (one accessible by Windows and one by WSL)' >> '%WSL_BASH_SCRIPT%'"
+wsl bash -c "echo 'HOST=\"%HOST%\"' >> '%WSL_BASH_SCRIPT%'"
+wsl bash -c "echo 'OUTPUT_FILE_WIN=\"%WSL_OUTPUT_FILE_WIN%\"' >> '%WSL_BASH_SCRIPT%'"
+wsl bash -c "echo 'OUTPUT_FILE_WSL=\"%WSL_OUTPUT_FILE_WSL%\"' >> '%WSL_BASH_SCRIPT%'"
+wsl bash -c "echo 'echo \"Starting ping of \$HOST 5 times...\"' >> '%WSL_BASH_SCRIPT%'"
+wsl bash -c "echo 'for i in {1..5}; do' >> '%WSL_BASH_SCRIPT%'"
+wsl bash -c "echo '    ping -c 1 \$HOST | tee -a \$OUTPUT_FILE_WIN \$OUTPUT_FILE_WSL' >> '%WSL_BASH_SCRIPT%'"
+wsl bash -c "echo '    sleep 3' >> '%WSL_BASH_SCRIPT%'"
+wsl bash -c "echo 'done' >> '%WSL_BASH_SCRIPT%'"
+wsl bash -c "echo 'echo \"Ping operation complete. Results saved.\"' >> '%WSL_BASH_SCRIPT%'"
+
+REM Make the Bash script executable.
+wsl bash -c "chmod +x '%WSL_BASH_SCRIPT%'"
+
+pause
+
+REM ========= RUN THE BASH SCRIPT IN WSL =========
+
+echo Running the Bash script in WSL...
+wsl bash "%WSL_BASH_SCRIPT%"
+if errorlevel 1 (
+    echo Failed to run the Bash script in WSL.
+) else (
+    echo Bash script executed successfully.
+)
+
+REM ========= DISPLAY A GUI NOTIFICATION =========
+
+REM Use PowerShell to show a simple message box notifying the user that the process is complete.
+powershell -command "Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('Ping operation complete.','Notification')"
+
+pause
