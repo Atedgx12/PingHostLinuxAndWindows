@@ -1,0 +1,65 @@
+#!/bin/bash
+# This script automates pinging a host 5 times and saving the results to a file.
+# It uses a GUI prompt (via Zenity) if available, otherwise falls back to terminal input.
+
+# ========= Determine the Target Directory =========
+# Use $HOME/Desktop if it exists, else use $HOME.
+if [ -d "$HOME/Desktop" ]; then
+    TARGET_DIR="$HOME/Desktop/CenturionConsultingProject2"
+else
+    TARGET_DIR="$HOME/CenturionConsultingProject2"
+fi
+
+# Create the target directory if it does not exist.
+mkdir -p "$TARGET_DIR"
+
+# ========= Get the Host to Ping =========
+DEFAULT_HOST="costco.com"
+HOST="$DEFAULT_HOST"
+
+# Check if Zenity is installed.
+if command -v zenity >/dev/null 2>&1; then
+    HOST=$(zenity --entry --title="Ping Host" --text="Enter host to ping:" --entry-text="$DEFAULT_HOST")
+    # If the user cancels or provides an empty string, revert to default.
+    if [ -z "$HOST" ]; then
+        HOST="$DEFAULT_HOST"
+    fi
+else
+    # Fallback: prompt via terminal.
+    read -p "Enter host to ping [default: $DEFAULT_HOST]: " input_host
+    if [ -n "$input_host" ]; then
+        HOST="$input_host"
+    fi
+fi
+
+# ========= Define the Output File =========
+OUTPUT_FILE="$TARGET_DIR/CenturionConsulting_ping_results.txt"
+
+# ========= Notify the User =========
+echo "Starting to ping $HOST 5 times."
+echo "Results will be saved to: $OUTPUT_FILE"
+
+if command -v zenity >/dev/null 2>&1; then
+    zenity --info --title="Ping Operation" --text="Starting to ping $HOST 5 times. Check your terminal for progress." &
+fi
+
+# Remove any existing output file.
+rm -f "$OUTPUT_FILE"
+
+# ========= Perform the Ping Operation =========
+for i in {1..5}; do
+    echo "Ping attempt $i..."
+    # Ping once and append the result to the output file.
+    ping -c 1 "$HOST" | tee -a "$OUTPUT_FILE"
+    # Wait for 3 seconds before the next ping.
+    sleep 3
+done
+
+# ========= Completion Notification =========
+echo "Ping operation complete. Results saved to $OUTPUT_FILE."
+
+if command -v zenity >/dev/null 2>&1; then
+    zenity --info --title="Ping Complete" --text="Ping operation complete. Results saved to: $OUTPUT_FILE"
+fi
+
+exit 0
